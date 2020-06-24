@@ -25,7 +25,7 @@ fn main() {
 
 	let mut counter: u64 = 0;
 
-	let mut source = opening_measures();
+	let mut source = Source {tracks: vec![treble(), bass()]};
 
 	let (tx, rx) = channel();
 
@@ -151,15 +151,15 @@ impl Instruction {
 	}
 }
 
-struct Source {
+struct Track {
 	instructions: Vec<Instruction>,
 	start_of_instruction: f64,
 	current_instruction: usize,
 }
 
-impl Source {
+impl Track {
 	fn new(instructions: Vec<Instruction>) -> Self {
-		Source {
+		Track {
 			instructions,
 			start_of_instruction: 0.0,
 			current_instruction: 0,
@@ -167,11 +167,34 @@ impl Source {
 	}
 }
 
-// this returns None to signal end of source
+struct Source {
+	tracks: Vec<Track>,
+}
+
 fn play_source(t: f64, source: &mut Source) -> Option<f64> {
-	let instructions = &source.instructions;
-	let start_of_instruction = &mut source.start_of_instruction;
-	let current_instruction = &mut source.current_instruction;
+	let outputs = source.tracks.iter_mut().map(
+		|track| play_track(t, track)
+	);
+
+	let mut final_output = None;
+
+	for output in outputs {
+		final_output = match (final_output, output) {
+			(Option::None, Option::None) => None,
+			(Option::None, x @ Option::Some(_)) => x,
+			(x @ Option::Some(_), None) => x,
+			(Option::Some(x), Option::Some(y)) => Some(x + y),
+		};
+	}
+
+	final_output
+}
+
+// this returns None to signal end of source
+fn play_track(t: f64, track: &mut Track) -> Option<f64> {
+	let instructions = &track.instructions;
+	let start_of_instruction = &mut track.start_of_instruction;
+	let current_instruction = &mut track.current_instruction;
 
 	let measure_time = 60.0 / BPM * 4.0;
 
@@ -199,7 +222,35 @@ fn play_source(t: f64, source: &mut Source) -> Option<f64> {
 }
 
 fn note_gen(t: f64, pitch: i32, length: f64) -> f64 {
-	(TAU * t * pitch_compute(pitch)).sin() * envelope(t / length)
+	let generator = if cfg!(feature = "sin_wave") {
+		sin_wave
+	} else {
+		sawtooth
+	};
+
+	generator(t * pitch_compute(pitch)) * envelope(t / length) * 0.96f64.powi(pitch)
+}
+
+fn sin_wave(x: f64) -> f64 {
+	(x * TAU).sin()
+}
+
+fn sawtooth(mut x: f64) -> f64 {
+	x %= 1.0;
+
+	if 0.0 <= x && x < 0.25 {
+		return x * 4.0;
+	}
+	
+	if 0.25 <= x && x < 0.75 {
+		return 2.0 - x * 4.0;
+	}
+
+	if 0.75 <= x && x < 1.0 {
+		return x * 4.0 - 4.0;
+	}
+
+	panic!("invalid input")
 }
 
 fn pitch_compute(pitch: i32) -> f64 {
@@ -222,65 +273,147 @@ fn envelope(x: f64) -> f64 {
 	return 1.0;
 }
 
-const L8TH: f64 = 1.0 / 8.0;
-const L16TH: f64 = 1.0 / 16.0;
+const WHOLE: f64 = 1.0;
+const HALF: f64 = 1.0 / 2.0;
+const QUARTER: f64 = 1.0 / 4.0;
+const N8TH: f64 = 1.0 / 8.0;
+const N16TH: f64 = 1.0 / 16.0;
 
-fn opening_measures() -> Source {
+fn treble() -> Track {
 	use Instruction::{Note, Rest};
 
-	Source::new(vec![
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: 5, length: L16TH},
-		Rest {length: L16TH},
-		Note {pitch: 0, length: L8TH},
-		Rest {length: L16TH},
-		Note {pitch: -1, length: L8TH},
-		Note {pitch: -2, length: L8TH},
-		Note {pitch: -4, length: L8TH},
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: -4, length: L16TH},
-		Note {pitch: -2, length: L16TH},
+	Track::new(vec![
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
 
-		Note {pitch: -9, length: L16TH},
-		Note {pitch: -9, length: L16TH},
-		Note {pitch: 5, length: L16TH},
-		Rest {length: L16TH},
-		Note {pitch: 0, length: L8TH},
-		Rest {length: L16TH},
-		Note {pitch: -1, length: L8TH},
-		Note {pitch: -2, length: L8TH},
-		Note {pitch: -4, length: L8TH},
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: -4, length: L16TH},
-		Note {pitch: -2, length: L16TH},
+		Note {pitch: -21, length: N16TH},
+		Note {pitch: -21, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
 
-		Note {pitch: -10, length: L16TH},
-		Note {pitch: -10, length: L16TH},
-		Note {pitch: 5, length: L16TH},
-		Rest {length: L16TH},
-		Note {pitch: 0, length: L8TH},
-		Rest {length: L16TH},
-		Note {pitch: -1, length: L8TH},
-		Note {pitch: -2, length: L8TH},
-		Note {pitch: -4, length: L8TH},
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: -4, length: L16TH},
-		Note {pitch: -2, length: L16TH},
+		Note {pitch: -22, length: N16TH},
+		Note {pitch: -22, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
 
-		Note {pitch: -11, length: L16TH},
-		Note {pitch: -11, length: L16TH},
-		Note {pitch: 5, length: L16TH},
-		Rest {length: L16TH},
-		Note {pitch: 0, length: L8TH},
-		Rest {length: L16TH},
-		Note {pitch: -1, length: L8TH},
-		Note {pitch: -2, length: L8TH},
-		Note {pitch: -4, length: L8TH},
-		Note {pitch: -7, length: L16TH},
-		Note {pitch: -4, length: L16TH},
-		Note {pitch: -2, length: L16TH},
+		Note {pitch: -23, length: N16TH},
+		Note {pitch: -23, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
 
-		Rest {length: L16TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
+
+		Note {pitch: -21, length: N16TH},
+		Note {pitch: -21, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
+
+		Note {pitch: -22, length: N16TH},
+		Note {pitch: -22, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
+
+		Note {pitch: -23, length: N16TH},
+		Note {pitch: -23, length: N16TH},
+		Note {pitch: -7, length: N16TH},
+		Rest {length: N16TH},
+		Note {pitch: -12, length: N8TH},
+		Rest {length: N16TH},
+		Note {pitch: -13, length: N8TH},
+		Note {pitch: -14, length: N8TH},
+		Note {pitch: -16, length: N8TH},
+		Note {pitch: -19, length: N16TH},
+		Note {pitch: -16, length: N16TH},
+		Note {pitch: -14, length: N16TH},
+
+		Rest {length: N16TH},
+	])
+}
+
+fn bass() -> Track {
+	use Instruction::{Note, Rest};
+
+	Track::new(vec![
+		Rest {length: WHOLE},
+
+		Rest {length: WHOLE},
+
+		Rest {length: WHOLE},
+
+		Rest {length: WHOLE},
+
+		Note {pitch: -31, length: WHOLE},
+
+		Note {pitch: -33, length: WHOLE},
+
+		Note {pitch: -34, length: WHOLE},
+
+		Note {pitch: -35, length: 1.5 * QUARTER},
+		Note {pitch: -35, length: N8TH},
+		Note {pitch: -33, length: HALF},
+		Note {pitch: -33, length: N8TH},
+
+		Rest {length: N16TH},
 	])
 }
